@@ -36,18 +36,19 @@ int main(int argc, char const *argv[])
         printf("\nConnection Failed \n"); 
         return -1; 
     }
-    //scanf("%s", buffer);
-    //printf("\t%s\n", buffer);
-    //send(sock , buffer , strlen(buffer) , 0 ); 
-    //printf("Hello message sent\n"); 
+
     valread = read( sock , buffer, 1024); 
     printf("%s\n",buffer);
+    
     for(;;){
       scanf("%s",buffer);
-      printf("to:sent:\t%s\n", buffer);
-      send(sock,buffer,strlen(buffer),0);
-      valread = read(sock,buffer,1024);
-      printf("recived::\t\t%s\n", buffer);
+      do{
+        printf("to:sent:\t%s\n", buffer);
+        send(sock,buffer,strlen(buffer),0);
+        valread = read(sock,buffer,1024);
+        printf("recived::\t\t%s\n", buffer);
+      }while(scanf("%126[^\n]",buffer));
     }
+
     return 0; 
 } 
