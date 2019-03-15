@@ -7,6 +7,7 @@
 
 int main(int argc, char const *argv[]) 
 {
+  char *nombre = "";
   int PORT = 0, mPORT = 12020;
   char *ip_serv = "";
   if(argc < 3){
@@ -17,7 +18,7 @@ int main(int argc, char const *argv[])
     PORT = atoi(2[argv]);
     ip_serv = 1[argv];
   }
-  printf("%d\n",PORT);
+  //printf("%d\n",PORT);
   struct sockaddr_in address; 
   int sock = 0, valread; 
   struct sockaddr_in serv_addr; 
@@ -58,7 +59,12 @@ int main(int argc, char const *argv[])
 
   valread = read( sock, buffer, 1024); 
   printf("%s\n",buffer);
-    
+  
+  printf("Indique un nombre de usuario: ");
+  scanf("%s",nombre);
+  send(sock,nombre,strlen(nombre),0);
+
+
   for(;;){
     scanf("%s",buffer);
     if(strcmp(buffer,"quit")==0){break;}
