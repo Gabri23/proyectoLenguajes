@@ -6,9 +6,7 @@
 #include <stdlib.h> 
 #include <netinet/in.h> 
 #include <string.h> 
-#include <sys/types.h>
-
-#define PORT 8888  
+#include <sys/types.h>  
 
 int clientMg(int socket_fd){
   printf("cliente connectado %d\n", socket_fd);
@@ -34,7 +32,14 @@ int clientMg(int socket_fd){
 }
 
 int main(int argc, char const *argv[]) 
-{ 
+{
+  int PORT = 0;
+  if(argc<2){
+    printf("usage: %s port\n",argv[0]);
+    return -1;
+  } else {
+    PORT = atoi(argv[1]);
+  }
   int server_fd, new_fd; 
   struct sockaddr_in address; 
   int opt = 1, addrlen = sizeof(address), pid;
