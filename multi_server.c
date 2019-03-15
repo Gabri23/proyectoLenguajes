@@ -11,12 +11,14 @@
 int clientMg(int socket_fd){
   printf("cliente connectado %d\n", socket_fd);
   char buffer[1024];
-  const char *message = "Hola Mundo\n\0";
+  const char *message = "Coneccion Establecida\n\0";
+  char nombre[50] = "";
   int valread;
   if(send(socket_fd, message, strlen(message),0)!=strlen(message)) {
     perror("send");
     return -1;
   }
+  read(socked_fd,nombre,50);
   for(;;) {
     if( (valread = read(socket_fd, buffer, 1024) ) == 0 ) {
       /** disconnect **/
