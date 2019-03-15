@@ -4,10 +4,20 @@
 #include <stdlib.h> 
 #include <netinet/in.h> 
 #include <string.h> 
-#define PORT 8888 
+//#define PORT 8888 
    
 int main(int argc, char const *argv[]) 
-{ 
+{
+  int PORT = 0;
+  char *ip_serv = "";
+  if(argc < 3){
+    printf("usge: client ip-ser port-ser\n");
+    return -1;
+  } else {
+    PORT = atoi(2[argv]);
+    ip_serv = 1[argv];
+  }
+  printf("%d\n",PORT);
   struct sockaddr_in address; 
   int sock = 0, valread; 
   struct sockaddr_in serv_addr; 
@@ -24,7 +34,7 @@ int main(int argc, char const *argv[])
   serv_addr.sin_port = htons(PORT); 
      
   // Convert IPv4 and IPv6 addresses from text to binary form 
-  if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0) { 
+  if(inet_pton(AF_INET, ip_serv, &serv_addr.sin_addr)<=0) { 
     printf("\nInvalid address/ Address not supported \n"); 
     return -1; 
   } 
@@ -34,12 +44,12 @@ int main(int argc, char const *argv[])
     return -1; 
   }
 
-  valread = read( sock , buffer, 1024); 
+  valread = read( sock, buffer, 1024); 
   printf("%s\n",buffer);
     
   for(;;){
     scanf("%s",buffer);
-    if(buffer == "quit"){break;}
+    if(strcmp(buffer,"quit")==0){break;}
     do{
       printf("to:sent:\t%s\n", buffer);
       send(sock,buffer,strlen(buffer),0);
