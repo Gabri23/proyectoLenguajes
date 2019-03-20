@@ -32,10 +32,6 @@ int clientMg(int socket_fd, struct Cliente *OnLine, int *pipefd)
     return -4;
   }
   /**********************************************************/
-  /** ESTO NO VA A FUNCIONAR **/
-  /** STRING NUNCA SERÄ UN NULL **/
-  //asignar el nombre a cada cliente en la lista, revisa si el nombre es NULL para hacerlo, nombre es el array de chars que se crea dentro
-  //de la funcion, Nombre es el atributo del struct
   if(OnLine[0].Nombre == NULL) {
      strcpy(OnLine[0].Nombre,nombre);
      printf("Cliente registrado%s\n",nombre);
