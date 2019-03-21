@@ -6,16 +6,16 @@
 
 int main(int argc, char const *argv[]) 
 {
-  char *nombre = "";
+  char nombre[50];
   int PORT = 0, mPORT = 12020;
-  char *ip_serv = "";
+  char *ip_serv;
   if(argc < 3){
     printf("usge: %s ip-ser port-ser port-cli\n",argv[0]);
     return -1;
   } else {
     mPORT = atoi(3[argv]);
     PORT = atoi(2[argv]);
-    ip_serv = 1[argv];
+    ip_serv = argv[1];
   }
   //printf("%d\n",PORT);
   struct sockaddr_in address; 
@@ -61,8 +61,9 @@ int main(int argc, char const *argv[])
   
   printf("Indique un nombre de usuario: ");
   scanf("%s",nombre);
+  printf("Nombre: %s\n",nombre);
   send(sock,nombre,strlen(nombre),0);
-
+  printf("User: %s\n",nombre);
 
   for(;;){
     scanf("%s",buffer);
