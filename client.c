@@ -3,6 +3,9 @@
 #include <stdlib.h> 
 #include <netinet/in.h> 
 #include <string.h> 
+#include <signal.h>
+
+int pid = -1;
 
 int main(int argc, char const *argv[]) 
 {
@@ -55,26 +58,42 @@ int main(int argc, char const *argv[])
     close(sock);
     return -1; 
   }
+  printf("Connected\n");
 
   valread = read( sock, buffer, 1024); 
   printf("%s\n",buffer);
   
   printf("Indique un nombre de usuario: ");
   scanf("%s",nombre);
-  printf("Nombre: %s\n",nombre);
   send(sock,nombre,strlen(nombre),0);
   printf("User: %s\n",nombre);
 
-  for(;;){
-    scanf("%s",buffer);
-    if(strcmp(buffer,"quit")==0){break;}
-    do{
-      printf("to:sent:\t%s\n", buffer);
+  pid = fork();
+  if(pid<0){return -4;}
+  if(pid==0){ /**child, listen**/
+    for(;;){
+      if((valread=read(sock,buffer,1024))>0){
+        buffer[valread]='\0';
+        printf("(rcv)\t%s\n",buffer);
+      }
+    }
+  } else { /**parent, send**/
+    for(;;){
+      scanf("%s",buffer);
+      if(strcmp(buffer,"quit")==0){break;}
+      sprintf(buffer,"%s \0",buffer);
       send(sock,buffer,strlen(buffer),0);
-      valread = read(sock,buffer,1024);
-      printf("recived::\t\t%s\n", buffer);
-    } while(scanf("%126[^\n]",buffer));
+      printf("(snd)\t%s\n",buffer);
+      usleep(2000);
+      /*
+      do{
+        printf("(snd)\t%s\n", buffer);
+        send(sock,buffer,strlen(buffer),0);
+      } while(scanf("%126[^\n]",buffer));
+      */
+    }
+    kill(pid,SIGTERM);
+    close(sock);
   }
-  close(sock);
   return 0; 
 } 
