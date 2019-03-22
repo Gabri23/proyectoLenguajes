@@ -76,7 +76,8 @@ int main(int argc, char const *argv[])
         buffer[valread]='\0'; /**lo imprime **/
         printf(":: %s\n",buffer);
       } else if(valread==0){ /**esto no deberia entrar**/
-        printf("ya se acabo\n");
+        printf("Server Desconectado: ya se acab+o\n");
+        break;
       }
     }
   } else { /**parent, send**/
@@ -87,8 +88,8 @@ int main(int argc, char const *argv[])
       while(scanf("%800[^\n]",buffer)){ /**mientras haya algo mas que leer, resto del mensaje**/
         if(strcmp(buffer," ")==0) continue; /**si es vacio lo ingora, espacio al final**/
         sprintf(sendin,"%s %s",dest,buffer); /**arma el mensaje**/
-        printf("\t\t(snd): %s\n", sendin); /**imprime, debug**/
-        //send(sock,sendin,strlen(sendin),0); /**envia el mensaje**/
+        //printf("\t\t(snd): %s\n", sendin); /**imprime, debug**/
+        send(sock,sendin,strlen(sendin),0); /**envia el mensaje**/
         usleep(2000); /**un sleep para que el server no se caliente**/ //se podria omitir
       }
     }
