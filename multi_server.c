@@ -13,6 +13,7 @@
 #include <string.h> 
 #include <sys/types.h>  
 #include <fcntl.h>
+#include <signal.h>
 
 //struct que guarda los valores del nombre y el color de cada cliente
 struct Cliente{
@@ -22,40 +23,10 @@ struct Cliente{
   int sockfd;
 };
 
+char*COLORS[]={CRED,CGREEN,CYELLOW,CBLUE,CMAGENTA};
 struct Cliente OnLine[5];
-int cli_st[5], pipefd[5][2];
-
-//funcion que maneja la comunicacion entre los sockets
-int clientMg(int socket_fd, int *pipefd)
-{
-  printf("cliente connectado %d\n", socket_fd);
-  //guardar el nombre del cliente nuevo que se conecto
-  //struct cliente
-  char buffer[1024];
-  const char *message = "Coneccion Establecida\n\0";
-  char nombre[50] = "";
-  int valread;
-  if(send(socket_fd, message, strlen(message),0)!=strlen(message)) {
-    perror("send");
-    return -1;
-  }
-  if( ( valread = read(socket_fd,nombre,50) ) == 0 ) {
-    printf("Error en coneccón\n");
-    return -4;
-  }
-  for(;;) {
-    if( (valread = read(socket_fd, buffer, 1024) ) == 0 ) {
-      /** disconnect **/
-      printf("Cliente desconectado %d\n",socket_fd);
-      break;
-    } else {
-      buffer[valread] = '\0';
-      printf("Recived From Client:\t%s\n",buffer);
-      send(socket_fd,buffer,strlen(buffer),0);
-    }
-  }
-  return 0;
-}
+int cli_st[5];
+int p_ctop[5][2], p_ptoc[5][2]; //pipes para comunicar client->parent, parent->client;
 
 int main(int argc, char const *argv[]) 
 {
@@ -71,9 +42,12 @@ int main(int argc, char const *argv[])
   OnLine[2] = Cliente3;
   for(int i=0;i<5;++i){ 
     cli_st[i]=-1;
-    pipe(pipefd[i]);
-    fcntl(pipefd[i][0],F_SETFL, fcntl(pipefd[i][0],F_GETFL,0)|O_NONBLOCK); //non block read end
-    fcntl(pipefd[i][1],F_SETFL, fcntl(pipefd[i][1],F_GETFL,0)|O_NONBLOCK); //non block write end
+    pipe(p_ptoc[i]);
+    pipe(p_ctop[i]);
+    fcntl(p_ptoc[i][0],F_SETFL, fcntl(p_ptoc[i][0],F_GETFL,0)|O_NONBLOCK); //non block read end
+    fcntl(p_ptoc[i][1],F_SETFL, fcntl(p_ptoc[i][1],F_GETFL,0)|O_NONBLOCK); //non block read end
+    fcntl(p_ctop[i][0],F_SETFL, fcntl(p_ctop[i][0],F_GETFL,0)|O_NONBLOCK); //non block write end
+    fcntl(p_ctop[i][1],F_SETFL, fcntl(p_ctop[i][1],F_GETFL,0)|O_NONBLOCK); //non block read end
   }
   
   int PORT = 0;
@@ -114,71 +88,95 @@ int main(int argc, char const *argv[])
     perror("listen");
     exit(EXIT_FAILURE);
   }
-  
-  char buffer[1025];
+ 
+  /**buffer de lectura, y string para montar el mensaje completo**/
+  char buffer[1025], sendin[4000];
+  /**hace fork**/
   pid = fork();
   if(pid<0){return -4;}
-  if(pid>0){ //parent
+  if(pid>0){ 
+    /**EL Padre se encarga de escuchar los sockets y procesar el mensaje**/
+    for(int i=0;i<5;++i){ close(p_ctop[i][1]); close(p_ptoc[i][0]); } /** cierra los extremos de pipes no usados :1->write - 0->read: **/
     /**manage multiple pipes **/
     for(;;){
+      usleep(2000); /**O si no el cpu podrá cocinar huevos**/
       for(int i=0;i<5;++i){
-        if(read(pipefd[i][0],buffer,1024)<0) {
-          /**read error, no info**/
-          continue;
-        } else {
+        /**Revisa cada uno de los pipes de lectura**/
+        /**A estos escriben los hijos del hijo**/
+        if((valread = read(p_ctop[i][0],buffer,1024))<0) {/**<0, no lee**/ continue; } else {
           /**something was actually read**/
-          printf("%d:: %s\n",i,buffer);
+          if(strncmp(buffer,"disconected",strlen("disconected"))==0){ /**si un cliente se desconecto**/
+            printf("Ja,%d c mamo\n",i);
+            cli_st[i]=-10; /**libera el espacio**/
+            continue;
+          }
+          if(cli_st[i]<0) { /**si estaba libre**/
+            cli_st[i]=100; /**lo reclama**/
+            strncpy(OnLine[i].Nombre,buffer,44); /**es la primera lectura, es el nombre**/
+            printf("Nombrado\n");
+          } else { /**si no**/
+            buffer[valread]='\0';
+            sprintf(sendin,"%s%s says:: %s\e[30;0m",COLORS[i],OnLine[i].Nombre,buffer); /**arma el mensaje**/
+            printf("\t\t%s\n",sendin); /**imprime, debug**/
+            for(int j=0;j<5;j++){ /**busca al destino**/
+              if(j!=i && cli_st[j]>0) write(p_ptoc[j][1],sendin,strlen(sendin)); //escribe en el pipe del destino
+            }
+          }
         }
       }
     }
+    kill(pid,SIGTERM); /**es el padre, mata a los hijos antes de morir el**/
   } else {
     /**child**/
     /**manage server sockets**/
     int i;
-    const char *mess = "Hello there\n";
-    while(1){
-      if( (new_fd = accept(server_fd, (struct sockaddr*)&address,(socklen_t*)&addrlen)) <0){
+    const char *mess = "Connection Sucesstion\n"; /**Mensaje de conecti+on**/
+    while(1){ /**Ciclo principal**/
+      if( (new_fd = accept(server_fd, (struct sockaddr*)&address,(socklen_t*)&addrlen)) <0){ /**espera nuevas conecciones*/
         perror("accept");
         continue;
       }
-      for(i=0;i<5;++i){
+      for(i=0;i<5;++i){ /**coneccion nueva, busca un lugar donde ponerla**/
         if(cli_st[i]<0){
           cli_st[i]=10;
           break;
         }
       }
-      pid = fork();
-      if(pid>0){ //parent
-        close(new_fd);
+      pid = fork(); /**fork, padre continua escuchando, hijos procesan los clientes**/
+      if(pid>0){ //perent
+        close(new_fd); //cierra nueva coneccion
       } else { //child
-        close(server_fd);
-        send(new_fd,mess,strlen(mess),0);
-        if((valread = read(new_fd,buffer,1024))>0){
-          buffer[valread] = '\0';
-          //write(pipefd[i][1],buffer,1024);
+        close(server_fd); //cierra server,eso es del padre
+        close(p_ctop[i][0]); //read /**cierra las pipes no necesarias
+        close(p_ptoc[i][1]); //write //
+        send(new_fd,mess,strlen(mess),0); //envia mensaje de prueba
+        if((valread = read(new_fd,buffer,1024))>0){ //espera por respuesta, deberia ser el nombre de usuario
+          buffer[valread] = '\0'; //añade un EOL
+          write(p_ctop[i][1],buffer,1024); //y lo manda el abuelo para que lo procese, primer mensaje
         }
+        /**Ajusta el pipe a no bloqueo: so no hay algo que leer no espera, continua**/
         fcntl(new_fd,F_SETFL,fcntl(new_fd,F_GETFL,0)|O_NONBLOCK);
-        for(;;){
-          if((valread = read(new_fd,buffer,1024))>0){
-            buffer[valread] = '\0';
-            //printf("Recibeb %s\n",buffer);
-            //send(new_fd,buffer,1024,0);
-            write(pipefd[i][1],buffer,1024);
-          } else if(valread == 0){
+        for(;;){ //ciclo para procesar los clientes
+          usleep(2000); //para que el ventilador no estalle
+          if((valread = read(new_fd,buffer,1024))>0){ //intenta leer el socket, <0 significa que no hay nada nuevo
+            buffer[valread] = '\0'; //ajusta el EOL
+            write(p_ctop[i][1],buffer,1024); //y se lo manda al abuelo para que lo procese
+          } else if(valread == 0){ //si es 0 significa que ya no hay nada mas, desconectado, EOF
             /**disconect**/
-            printf("Cliente %d desconectado\n",i);
-            break;
+            strcpy(buffer,"disconected"); //ajusta mensaje
+            write(p_ctop[i][1],buffer,strlen(buffer)); //y se lo comunica al abuelo
+            printf("Efectivamente, %d c mamo\n",i); //
+            break; //cierra el ciclo
           }
-          if( (valread = read(pipefd[i][0],buffer,1024))>0){
-            buffer[valread] = '\0';
-            send(new_fd,buffer,1024,0);
+          if( (valread = read(p_ptoc[i][0],sendin,4000))>0){ //lee si el abuelo le mandó algo
+            sendin[valread] = '\0'; //ajusta el mensaje
+            send(new_fd,sendin,strlen(sendin),0); //y lo manda al cliente
           }
         }
-        close(new_fd);
-        return 0;
+        close(new_fd); //cierra el socket
+        return 0; //y muere
       }
     }
   }
-
-  return 0; 
+  return 0;
 }
