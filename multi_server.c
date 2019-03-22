@@ -30,7 +30,7 @@ int p_ctop[5][2], p_ptoc[5][2]; //pipes para comunicar client->parent, parent->c
 
 int main(int argc, char const *argv[]) 
 {
-  struct Cliente Cliente1, Cliente2, Cliente3;
+  struct Cliente Cliente1, Cliente2, Cliente3, Cliente4, Cliente5;
   //colores preasignados por posicion, es decir el primero que se conecte siempre sera rojo, el segundo verde, etc
   strcpy(Cliente1.color,CRED);
   strcpy(Cliente2.color,CYELLOW);
@@ -40,6 +40,9 @@ int main(int argc, char const *argv[])
   OnLine[0] = Cliente1;
   OnLine[1] = Cliente2;
   OnLine[2] = Cliente3;
+  OnLine[3] = Cliente4;
+  OnLine[4] = Cliente5;
+
   for(int i=0;i<5;++i){ 
     cli_st[i]=-1;
     pipe(p_ptoc[i]);
@@ -90,7 +93,7 @@ int main(int argc, char const *argv[])
   }
  
   /**buffer de lectura, y string para montar el mensaje completo**/
-  char buffer[1025], sendin[4000];
+  char buffer[1025], sendin[4000],dest[50];
   /**hace fork**/
   pid = fork();
   if(pid<0){return -4;}
@@ -116,10 +119,26 @@ int main(int argc, char const *argv[])
             printf("Nombrado\n");
           } else { /**si no**/
             buffer[valread]='\0';
+            //printf("Aqui %s",buffer);
+            { /**local j,k**/
+              int j,k;
+              for(j=0;buffer[j]!=' ';j++) dest[j]=buffer[j];
+              dest[j++]='\0';
+              for(k=0;buffer[j]!='\0';) buffer[k++]=buffer[j++];
+              buffer[k]='\0';
+            }
             sprintf(sendin,"%s%s says:: %s\e[30;0m",COLORS[i],OnLine[i].Nombre,buffer); /**arma el mensaje**/
-            printf("\t\t%s\n",sendin); /**imprime, debug**/
-            for(int j=0;j<5;j++){ /**busca al destino**/
-              if(j!=i && cli_st[j]>0) write(p_ptoc[j][1],sendin,strlen(sendin)); //escribe en el pipe del destino
+            printf("\t%s\t%s\n",dest,sendin); /**imprime, debug**/
+            if(strcmp(dest,"everyone")==0) {
+              for(int j=0;j<5;j++) { /**busca al destino**/
+                if(j!=i && cli_st[j]>0) write(p_ptoc[j][1],sendin,strlen(sendin)); //escribe en el pipe del destino
+              }
+            } else {
+              for(int j=0;j<5;++j) {
+                if(cli_st[j]>0 && strcmp(OnLine[j].Nombre,dest)==0){
+                  write(p_ptoc[j][1],sendin,strlen(sendin));
+                }
+              }
             }
           }
         }
@@ -160,6 +179,7 @@ int main(int argc, char const *argv[])
           usleep(2000); //para que el ventilador no estalle
           if((valread = read(new_fd,buffer,1024))>0){ //intenta leer el socket, <0 significa que no hay nada nuevo
             buffer[valread] = '\0'; //ajusta el EOL
+            printf("(1) %s",buffer);
             write(p_ctop[i][1],buffer,1024); //y se lo manda al abuelo para que lo procese
           } else if(valread == 0){ //si es 0 significa que ya no hay nada mas, desconectado, EOF
             /**disconect**/
