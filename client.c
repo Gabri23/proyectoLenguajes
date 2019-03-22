@@ -25,7 +25,7 @@ int main(int argc, char const *argv[])
   int sock = 0, valread; 
   struct sockaddr_in serv_addr; 
   char *hello = "Hello from client"; 
-  char buffer[1024] = {0}; 
+  char buffer[802], dest[50], sendin[1024]; 
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) { 
     printf("\n Socket creation error \n");
     return -1;
@@ -71,29 +71,29 @@ int main(int argc, char const *argv[])
   pid = fork();
   if(pid<0){return -4;}
   if(pid==0){ /**child, listen**/
-    for(;;){
-      if((valread=read(sock,buffer,1024))>0){
-        buffer[valread]='\0';
-        printf("(rcv)\t%s\n",buffer);
+    for(;;){ /**este ciclo escucha al socket**/
+      if((valread=read(sock,buffer,1024))>0){ /**si recibe algo**/
+        buffer[valread]='\0'; /**lo imprime **/
+        printf(":: %s\n",buffer);
+      } else if(valread==0){ /**esto no deberia entrar**/
+        printf("ya se acabo\n");
       }
     }
   } else { /**parent, send**/
-    for(;;){
-      scanf("%s",buffer);
-      if(strcmp(buffer,"quit")==0){break;}
-      sprintf(buffer,"%s \0",buffer);
-      send(sock,buffer,strlen(buffer),0);
-      printf("(snd)\t%s\n",buffer);
-      usleep(2000);
-      /*
-      do{
-        printf("(snd)\t%s\n", buffer);
-        send(sock,buffer,strlen(buffer),0);
-      } while(scanf("%126[^\n]",buffer));
-      */
+    for(;;){ /**este ciclo lee la stdin y envia mensajes**/
+      scanf("%s",dest); /**primero lee el destinatario**/
+      if(strcmp(dest,"quit")==0){break;} /**si es quit cierra el programa**/
+      //dest[valread]='\0';
+      while(scanf("%800[^\n]",buffer)){ /**mientras haya algo mas que leer, resto del mensaje**/
+        if(strcmp(buffer," ")==0) continue; /**si es vacio lo ingora, espacio al final**/
+        sprintf(sendin,"%s %s",dest,buffer); /**arma el mensaje**/
+        printf("\t\t(snd): %s\n", sendin); /**imprime, debug**/
+        //send(sock,sendin,strlen(sendin),0); /**envia el mensaje**/
+        usleep(2000); /**un sleep para que el server no se caliente**/ //se podria omitir
+      }
     }
-    kill(pid,SIGTERM);
-    close(sock);
+    kill(pid,SIGTERM); /**termina y mana al hijo, el otro**/
+    close(sock); /**cierra el soket**/
   }
   return 0; 
 } 
